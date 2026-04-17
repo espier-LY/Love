@@ -548,6 +548,11 @@
             display: none !important;
         }
 
+        /* memories-area 的 hidden 需要特殊处理 */
+        .memories-area.hidden {
+            display: none !important;
+        }
+
         .invisible {
             opacity: 0 !important;
             pointer-events: none !important;
@@ -720,6 +725,80 @@
                 transform: scale(0.97);
             }
         }
+
+        /* ============================================
+           💝 3D回忆页面样式
+           ============================================ */
+        .memories-area {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            background: linear-gradient(135deg, #0f0f2d 0%, #1a1a3e 30%, #2d1b4e 60%, #1a1a3e 100%);
+        }
+
+        .memories-area.visible {
+            display: flex !important;
+        }
+
+        .memories-title {
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            color: white;
+            text-align: center;
+            text-shadow: 0 0 30px var(--glow-pink), 0 0 60px rgba(255, 107, 157, 0.5);
+            z-index: 210;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -150%);
+            pointer-events: none;
+        }
+
+        #memories-canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 205;
+        }
+
+        .back-to-final-btn {
+            position: fixed;
+            top: max(20px, env(safe-area-inset-top));
+            left: 20px;
+            padding: 12px 25px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: white;
+            background: linear-gradient(135deg, rgba(255, 107, 157, 0.7), rgba(155, 127, 205, 0.7));
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px var(--glow-purple);
+            z-index: 210;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-to-final-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px var(--glow-pink);
+        }
+
+        @media screen and (max-width: 768px) {
+            .back-to-final-btn {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -769,7 +848,14 @@
             <div class="final-heart-rain" id="final-heart-rain"></div>
             <div class="big-heart" style="animation-delay: 0s;">💝</div>
             <p class="final-text">以后也想一直陪着你</p>
-            <a href="memories.html" class="memories-btn">探索回忆日常 💫</a>
+            <button class="memories-btn" id="memories-btn">探索回忆日常 💫</button>
+        </div>
+
+        <!-- 3D回忆页面 -->
+        <div class="memories-area hidden" id="memories-area">
+            <h1 class="memories-title">💝 我们的回忆 💝</h1>
+            <div id="memories-canvas-container"></div>
+            <button class="back-to-final-btn" id="back-to-final-btn">← 返回</button>
         </div>
     </div>
 
@@ -780,6 +866,9 @@
     <audio id="bg-music" loop>
         <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
     </audio>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
         /* ============================================
@@ -806,9 +895,18 @@
         };
 
         let state = {
-            stage: 0, // 0: intro, 1: typing, 2: confession, 3: final
+            stage: 0, // 0: intro, 1: typing, 2: confession, 3: final, 4: memories
             musicPlaying: false
         };
+
+        // Three.js variables for memories
+        let memoriesScene, memoriesCamera, memoriesRenderer, memoriesParticles, memoriesHeartPoints = [];
+        let memoriesIsDragging = false;
+        let memoriesPreviousMousePosition = { x: 0, y: 0 };
+        let memoriesTargetRotation = { x: 0, y: 0 };
+        let memoriesCurrentRotation = { x: 0, y: 0 };
+        let memoriesAutoRotate = true;
+        let memoriesAutoRotateTimeout;
 
         /* ============================================
            🌌 创建星空
@@ -1219,6 +1317,224 @@
         }
 
         /* ============================================
+           💝 回忆按钮 - 进入3D爱心页面
+           ============================================ */
+        function setupMemoriesButton() {
+            const btn = document.getElementById('memories-btn');
+            const memoriesArea = document.getElementById('memories-area');
+            const backBtn = document.getElementById('back-to-final-btn');
+
+            btn.addEventListener('click', () => {
+                state.stage = 4;
+                memoriesArea.classList.add('visible');
+                initMemories3D();
+            });
+
+            backBtn.addEventListener('click', () => {
+                memoriesArea.classList.remove('visible');
+                state.stage = 3;
+                disposeMemories3D();
+            });
+        }
+
+        /* ============================================
+           💝 Three.js 3D 粒子爱心
+           ============================================ */
+        function initMemories3D() {
+            const container = document.getElementById('memories-canvas-container');
+            const particleCount = isMobile ? 1500 : 2500;
+            const heartScale = isMobile ? 4 : 6;
+
+            // 场景
+            memoriesScene = new THREE.Scene();
+
+            // 相机
+            const isMobileDevice = isMobile || window.innerWidth < 768;
+            memoriesCamera = new THREE.PerspectiveCamera(
+                isMobileDevice ? 60 : 50,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            memoriesCamera.position.z = isMobileDevice ? 80 : 100;
+
+            // 渲染器
+            memoriesRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            memoriesRenderer.setSize(window.innerWidth, window.innerHeight);
+            memoriesRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(memoriesRenderer.domElement);
+
+            // 生成爱心点
+            memoriesHeartPoints = [];
+            for (let i = 0; i < particleCount; i++) {
+                const u = Math.random() * Math.PI * 2;
+                const v = Math.random() * Math.PI * 2;
+
+                const x = 16 * Math.pow(Math.sin(u), 3);
+                const y = 13 * Math.cos(u) - 5 * Math.cos(2 * u) - 2 * Math.cos(3 * u) - Math.cos(4 * u);
+                const z = (Math.random() - 0.5) * 8 * (1 + Math.sin(v) * 0.5);
+
+                const noiseX = (Math.random() - 0.5) * 2;
+                const noiseY = (Math.random() - 0.5) * 2;
+                const noiseZ = (Math.random() - 0.5) * 2;
+
+                memoriesHeartPoints.push({
+                    x: (x + noiseX) * heartScale * 0.5,
+                    y: (y + noiseY) * heartScale * 0.5,
+                    z: (z + noiseZ) * heartScale * 0.3
+                });
+            }
+
+            // 创建粒子系统
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+
+            const colorPalette = [
+                new THREE.Color(0xff6b9d),
+                new THREE.Color(0xff8a80),
+                new THREE.Color(0xff4778),
+                new THREE.Color(0xffc2d4),
+                new THREE.Color(0xff69b4),
+                new THREE.Color(0xffb6c1),
+            ];
+
+            for (let i = 0; i < particleCount; i++) {
+                const point = memoriesHeartPoints[i];
+                positions[i * 3] = point.x;
+                positions[i * 3 + 1] = point.y;
+                positions[i * 3 + 2] = point.z;
+
+                const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: isMobile ? 3 : 2.5,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9,
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending
+            });
+
+            memoriesParticles = new THREE.Points(geometry, material);
+            memoriesScene.add(memoriesParticles);
+
+            // 事件监听
+            setupMemoriesEventListeners();
+
+            // 开始动画
+            animateMemories();
+        }
+
+        function setupMemoriesEventListeners() {
+            const canvas = memoriesRenderer.domElement;
+
+            canvas.addEventListener('mousedown', onMemoriesDragStart);
+            canvas.addEventListener('mousemove', onMemoriesDragMove);
+            canvas.addEventListener('mouseup', onMemoriesDragEnd);
+            canvas.addEventListener('mouseleave', onMemoriesDragEnd);
+
+            canvas.addEventListener('touchstart', onMemoriesTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', onMemoriesTouchMove, { passive: false });
+            canvas.addEventListener('touchend', onMemoriesDragEnd);
+
+            window.addEventListener('resize', onMemoriesWindowResize);
+        }
+
+        function onMemoriesDragStart(e) {
+            memoriesIsDragging = true;
+            memoriesAutoRotate = false;
+            clearTimeout(memoriesAutoRotateTimeout);
+            memoriesPreviousMousePosition = { x: e.clientX, y: e.clientY };
+        }
+
+        function onMemoriesDragMove(e) {
+            if (!memoriesIsDragging) return;
+
+            const deltaX = e.clientX - memoriesPreviousMousePosition.x;
+            const deltaY = e.clientY - memoriesPreviousMousePosition.y;
+
+            memoriesTargetRotation.y += deltaX * 0.003;
+            memoriesTargetRotation.x += deltaY * 0.003;
+            memoriesTargetRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, memoriesTargetRotation.x));
+
+            memoriesPreviousMousePosition = { x: e.clientX, y: e.clientY };
+        }
+
+        function onMemoriesDragEnd() {
+            memoriesIsDragging = false;
+            memoriesAutoRotateTimeout = setTimeout(() => {
+                memoriesAutoRotate = true;
+            }, 3000);
+        }
+
+        function onMemoriesTouchStart(e) {
+            if (e.touches.length === 1) {
+                e.preventDefault();
+                memoriesIsDragging = true;
+                memoriesAutoRotate = false;
+                clearTimeout(memoriesAutoRotateTimeout);
+                memoriesPreviousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        }
+
+        function onMemoriesTouchMove(e) {
+            if (!memoriesIsDragging || e.touches.length !== 1) return;
+            e.preventDefault();
+
+            const deltaX = e.touches[0].clientX - memoriesPreviousMousePosition.x;
+            const deltaY = e.touches[0].clientY - memoriesPreviousMousePosition.y;
+
+            memoriesTargetRotation.y += deltaX * 0.003;
+            memoriesTargetRotation.x += deltaY * 0.003;
+            memoriesTargetRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, memoriesTargetRotation.x));
+
+            memoriesPreviousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+
+        function onMemoriesWindowResize() {
+            memoriesCamera.aspect = window.innerWidth / window.innerHeight;
+            memoriesCamera.updateProjectionMatrix();
+            memoriesRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animateMemories() {
+            if (state.stage !== 4) return;
+
+            requestAnimationFrame(animateMemories);
+
+            if (memoriesAutoRotate) {
+                memoriesTargetRotation.y += 0.005;
+            }
+
+            memoriesCurrentRotation.x += (memoriesTargetRotation.x - memoriesCurrentRotation.x) * 0.08;
+            memoriesCurrentRotation.y += (memoriesTargetRotation.y - memoriesCurrentRotation.y) * 0.08;
+
+            memoriesParticles.rotation.x = memoriesCurrentRotation.x;
+            memoriesParticles.rotation.y = memoriesCurrentRotation.y;
+            memoriesParticles.position.y = Math.sin(Date.now() * 0.001) * 2;
+
+            memoriesRenderer.render(memoriesScene, memoriesCamera);
+        }
+
+        function disposeMemories3D() {
+            if (memoriesRenderer) {
+                memoriesRenderer.dispose();
+                const container = document.getElementById('memories-canvas-container');
+                if (container && container.children[0]) {
+                    container.removeChild(container.children[0]);
+                }
+            }
+        }
+
+        /* ============================================
            🔄 初始化
            ============================================ */
         function init() {
@@ -1227,6 +1543,7 @@
             setupMainButton();
             setupThinkButton();
             setupYesButton();
+            setupMemoriesButton();
 
             // 音乐按钮
             document.getElementById('music-toggle').addEventListener('click', toggleMusic);
