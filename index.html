@@ -353,6 +353,25 @@
             transform: scale(1.05);
         }
 
+        .btn-think.disappearing {
+            animation: btnDisappear 0.8s ease-out forwards;
+        }
+
+        @keyframes btnDisappear {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            30% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
         /* ============================================
            🎉 最终成功页面
            ============================================ */
@@ -699,7 +718,7 @@
         <div class="final-area" id="final-area">
             <div class="final-heart-rain" id="final-heart-rain"></div>
             <div class="big-heart" style="animation-delay: 0s;">💝</div>
-            <p class="final-text">以后也想一直陪着你 🌙</p>
+            <p class="final-text">以后也想一直陪着你</p>
         </div>
     </div>
 
@@ -984,45 +1003,100 @@
         }
 
         /* ============================================
-           🦊 "再想想"按钮逃跑效果
+           💫 "再想想"按钮消失效果
            ============================================ */
         function setupThinkButton() {
             const btn = document.getElementById('btn-think');
-            const container = btn.parentElement;
 
+            // 鼠标靠近时还是保持调皮效果（左右晃动）
             btn.addEventListener('mouseenter', () => {
                 if (state.stage !== 2) return;
-
-                const containerRect = container.getBoundingClientRect();
-                const btnRect = btn.getBoundingClientRect();
-
-                // 随机新位置
-                const maxX = containerRect.width - btnRect.width;
-                const maxY = 100;
-                const newX = Math.random() * maxX;
-                const newY = Math.random() * maxY;
-
-                btn.style.position = 'relative';
-                btn.style.left = newX + 'px';
-                btn.style.top = newY + 'px';
+                btn.style.transform = 'translateX(' + (Math.random() * 20 - 10) + 'px)';
             });
 
-            // 点击也触发逃跑
+            btn.addEventListener('mouseleave', () => {
+                if (state.stage !== 2) return;
+                btn.style.transform = '';
+            });
+
+            // 点击触发消失效果
             btn.addEventListener('click', (e) => {
                 if (state.stage !== 2) return;
                 e.preventDefault();
 
-                const containerRect = container.getBoundingClientRect();
-                const btnRect = btn.getBoundingClientRect();
+                // 触发小爱心爆炸
+                const rect = btn.getBoundingClientRect();
+                triggerMiniExplosion(rect.left + rect.width / 2, rect.top + rect.height / 2);
 
-                const maxX = containerRect.width - btnRect.width;
-                const maxY = 100;
-                const newX = Math.random() * maxX;
-                const newY = Math.random() * maxY;
+                // 添加消失动画
+                btn.classList.add('disappearing');
 
-                btn.style.left = newX + 'px';
-                btn.style.top = newY + 'px';
+                // 动画结束后隐藏按钮
+                btn.addEventListener('animationend', () => {
+                    btn.style.display = 'none';
+                }, { once: true });
             });
+        }
+
+        // 小型爱心爆炸效果
+        function triggerMiniExplosion(x, y) {
+            const container = document.getElementById('particle-canvas');
+            const hearts = ['💭', '💗', '✨', '🩷', '💕'];
+            const particles = [];
+
+            for (let i = 0; i < 12; i++) {
+                const el = document.createElement('div');
+                el.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+                el.style.cssText = `
+                    position: fixed;
+                    left: ${x}px;
+                    top: ${y}px;
+                    font-size: ${Math.random() * 10 + 12}px;
+                    pointer-events: none;
+                    z-index: 102;
+                    opacity: 1;
+                `;
+                container.appendChild(el);
+
+                const angle = (Math.PI * 2 / 12) * i + Math.random() * 0.5;
+                const speed = Math.random() * 3 + 2;
+                particles.push({
+                    el,
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 1,
+                    alpha: 1,
+                    decay: 0.025
+                });
+            }
+
+            let frame = 0;
+            const animate = () => {
+                frame++;
+                let alive = false;
+
+                particles.forEach(p => {
+                    if (p.alpha <= 0) return;
+                    alive = true;
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.1;
+                    p.alpha -= p.decay;
+
+                    p.el.style.transform = `translate(${p.x - x}px, ${p.y - y}px)`;
+                    p.el.style.opacity = p.alpha;
+                });
+
+                if (alive && frame < 60) {
+                    requestAnimationFrame(animate);
+                } else {
+                    particles.forEach(p => p.el.remove());
+                }
+            };
+
+            requestAnimationFrame(animate);
         }
 
         /* ============================================
