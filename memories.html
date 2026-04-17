@@ -486,9 +486,8 @@
             particles.rotation.x = currentRotation.x;
             particles.rotation.y = currentRotation.y;
 
-            // 轻微上下浮动 - 手机端向上偏移10px
-            const floatOffset = (isMobile || window.innerWidth < 768) ? -10 : 0;
-            particles.position.y = Math.sin(Date.now() * 0.001) * 2 + floatOffset;
+            // 轻微上下浮动
+            particles.position.y = Math.sin(Date.now() * 0.001) * 2;
 
             renderer.render(scene, camera);
         }
