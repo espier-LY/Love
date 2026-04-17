@@ -446,6 +446,43 @@
         }
 
         /* ============================================
+           💝 回忆按钮
+           ============================================ */
+        .memories-btn {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 15px 35px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: white;
+            background: linear-gradient(135deg, rgba(155, 127, 205, 0.8) 0%, rgba(147, 112, 219, 0.8) 100%);
+            border: none;
+            border-radius: 50px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow:
+                0 0 20px var(--glow-purple),
+                0 5px 20px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 60;
+            animation: fadeInUp 1s ease forwards;
+            animation-delay: 0.5s;
+            opacity: 0;
+        }
+
+        .memories-btn:hover {
+            transform: scale(1.05) translateY(-2px);
+            box-shadow:
+                0 0 30px var(--glow-purple),
+                0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .memories-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* ============================================
            🎵 音乐控制按钮
            ============================================ */
         .music-toggle {
@@ -597,6 +634,14 @@
                 line-height: 1.8;
             }
 
+            /* 回忆按钮 */
+            .memories-btn {
+                padding: 16px 30px;
+                font-size: 1rem;
+                margin-top: 25px;
+                touch-action: manipulation;
+            }
+
             /* 音乐按钮 - 更大更好点 */
             .music-toggle {
                 width: 56px;
@@ -724,6 +769,7 @@
             <div class="final-heart-rain" id="final-heart-rain"></div>
             <div class="big-heart" style="animation-delay: 0s;">💝</div>
             <p class="final-text">以后也想一直陪着你</p>
+            <a href="memories.html" class="memories-btn">探索回忆日常 💫</a>
         </div>
     </div>
 
@@ -755,7 +801,7 @@
                 '我开始期待每一天',
                 '开始珍惜每一次与你见面的时间',
                 '我总是很开心',
-                '因为我拥有全天下最好最漂亮的老婆'
+                '因为我拥有全天下最好的老婆'
             ]
         };
 
