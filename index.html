@@ -7,7 +7,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#1a1a3e">
-    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- 异步加载字体，不阻塞渲染 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
     <style>
         /* ============================================
            🌟 全局样式 & CSS 变量
@@ -55,11 +59,12 @@
             border-radius: 50%;
             animation: twinkle var(--duration) ease-in-out infinite;
             animation-delay: var(--delay);
+            will-change: opacity, transform;
         }
 
         @keyframes twinkle {
             0%, 100% { opacity: 0.3; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.3); box-shadow: 0 0 10px var(--star-white); }
+            50% { opacity: 1; transform: scale(1.2); }
         }
 
         /* ============================================
@@ -83,7 +88,7 @@
             animation: floatUp var(--duration) linear infinite;
             animation-delay: var(--delay);
             opacity: 0.6;
-            filter: drop-shadow(0 0 5px var(--glow-pink));
+            will-change: transform, opacity;
         }
 
         @keyframes floatUp {
@@ -110,6 +115,7 @@
             height: 100%;
             pointer-events: none;
             z-index: 100;
+            contain: strict;
         }
 
         /* ============================================
@@ -389,6 +395,7 @@
             font-size: var(--size);
             animation: fallHeart var(--duration) linear infinite;
             animation-delay: var(--delay);
+            will-change: transform, opacity;
         }
 
         @keyframes fallHeart {
@@ -475,7 +482,7 @@
 
         @keyframes auraBreath {
             0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.8; }
+            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
         }
 
         /* ============================================
@@ -581,12 +588,31 @@
 
             /* 浮动爱心减少一些避免性能问题 */
             .floating-heart {
-                --duration: 12s;
+                --duration: 15s;
+                opacity: 0.4;
             }
 
             /* 打字机光标适配 */
             .cursor {
                 height: 1.4em;
+            }
+
+            /* 简化主按钮动画 */
+            .main-btn {
+                animation: fadeInUp 1s ease forwards;
+            }
+
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(30px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
+            /* 魔法光晕简化 */
+            .magic-aura {
+                width: 200px;
+                height: 200px;
+                animation: none;
+                opacity: 0.4;
             }
         }
 
@@ -611,6 +637,12 @@
             .answer-btn {
                 padding: 15px 25px;
                 font-size: 1.2rem;
+            }
+
+            /* 星星动画完全禁用 */
+            .star {
+                animation: none;
+                opacity: 0.6;
             }
         }
 
@@ -684,12 +716,14 @@
            🌟 配置 & 状态
            ============================================ */
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+        const isLowEndMobile = isMobile && navigator.hardwareConcurrency <= 4;
 
         const CONFIG = {
-            starCount: isMobile ? 80 : 150,
-            floatingHeartCount: isMobile ? 8 : 12,
-            particleCount: isMobile ? 40 : 60,
-            typingSpeed: 80,
+            starCount: isLowEndMobile ? 40 : (isMobile ? 60 : 150),
+            floatingHeartCount: isMobile ? 5 : 12,
+            particleCount: isLowEndMobile ? 25 : (isMobile ? 35 : 60),
+            useEmojiParticles: isMobile,
+            typingSpeed: isMobile ? 100 : 80,
             phrases: [
                 '遇见你之后',
                 '我的世界开始变得不一样了',
@@ -745,109 +779,136 @@
         }
 
         /* ============================================
-           🎆 爱心粒子爆炸效果
+           🎆 爱心粒子爆炸效果 (移动端优化版)
            ============================================ */
         class HeartParticleExplosion {
             constructor(x, y) {
-                this.canvas = document.getElementById('particle-canvas');
-                this.ctx = this.canvas.getContext('2d');
-                this.canvas.width = window.innerWidth;
-                this.canvas.height = window.innerHeight;
+                this.x = x;
+                this.y = y;
                 this.particles = [];
+                this.elements = [];
                 this.init(x, y);
-                this.animate();
+
+                if (CONFIG.useEmojiParticles) {
+                    this.animateEmoji();
+                } else {
+                    this.animateCanvas();
+                }
             }
 
             init(x, y) {
-                const colors = ['#ff6b9d', '#ff8a80', '#ff4778', '#ffc2d4', '#ff69b4', '#fff'];
+                const hearts = ['💖', '💕', '💗', '💝', '✨', '🌸', '💜', '🩷'];
                 for (let i = 0; i < CONFIG.particleCount; i++) {
                     const angle = (Math.PI * 2 / CONFIG.particleCount) * i + Math.random() * 0.5;
-                    const speed = Math.random() * 8 + 4;
-                    const size = Math.random() * 15 + 8;
+                    const speed = Math.random() * 6 + 3;
+                    const size = Math.random() * 12 + 8;
                     this.particles.push({
                         x: x,
                         y: y,
                         vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
+                        vy: Math.sin(angle) * speed - 2,
                         size: size,
-                        color: colors[Math.floor(Math.random() * colors.length)],
                         alpha: 1,
                         decay: Math.random() * 0.02 + 0.015,
-                        rotation: Math.random() * Math.PI * 2,
+                        rotation: 0,
                         rotationSpeed: (Math.random() - 0.5) * 0.3,
-                        shape: Math.random() > 0.3 ? 'heart' : 'circle'
+                        emoji: hearts[Math.floor(Math.random() * hearts.length)]
                     });
                 }
             }
 
-            animate() {
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            animateEmoji() {
+                const container = document.getElementById('particle-canvas');
 
-                let aliveCount = 0;
                 this.particles.forEach(p => {
-                    if (p.alpha <= 0) return;
-                    aliveCount++;
-
-                    p.x += p.vx;
-                    p.y += p.vy;
-                    p.vy += 0.15; // 重力
-                    p.alpha -= p.decay;
-                    p.rotation += p.rotationSpeed;
-
-                    this.ctx.save();
-                    this.ctx.translate(p.x, p.y);
-                    this.ctx.rotate(p.rotation);
-                    this.ctx.globalAlpha = p.alpha;
-                    this.ctx.fillStyle = p.color;
-                    this.ctx.shadowColor = p.color;
-                    this.ctx.shadowBlur = 10;
-
-                    if (p.shape === 'heart') {
-                        this.drawHeart(0, 0, p.size);
-                    } else {
-                        this.ctx.beginPath();
-                        this.ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
-                        this.ctx.fill();
-                    }
-
-                    this.ctx.restore();
+                    const el = document.createElement('div');
+                    el.textContent = p.emoji;
+                    el.style.cssText = `
+                        position: fixed;
+                        left: ${p.x}px;
+                        top: ${p.y}px;
+                        font-size: ${p.size}px;
+                        pointer-events: none;
+                        z-index: 101;
+                        opacity: 1;
+                        will-change: transform, opacity;
+                    `;
+                    container.appendChild(el);
+                    this.elements.push({ el, p });
                 });
 
-                if (aliveCount > 0) {
-                    requestAnimationFrame(() => this.animate());
-                } else {
-                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                }
+                let frame = 0;
+                const maxFrames = 80;
+
+                const animate = () => {
+                    frame++;
+                    let alive = false;
+
+                    this.elements.forEach(({ el, p }) => {
+                        if (p.alpha <= 0) return;
+                        alive = true;
+
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += 0.15;
+                        p.alpha -= p.decay;
+                        p.rotation += p.rotationSpeed;
+
+                        el.style.transform = `translate(${p.x - parseFloat(el.style.left)}px, ${p.y - parseFloat(el.style.top)}px) rotate(${p.rotation}rad)`;
+                        el.style.opacity = p.alpha;
+                    });
+
+                    if (alive && frame < maxFrames) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        this.elements.forEach(({ el }) => el.remove());
+                    }
+                };
+
+                requestAnimationFrame(animate);
             }
 
-            drawHeart(x, y, size) {
-                const ctx = this.ctx;
-                ctx.beginPath();
-                const topCurveHeight = size * 0.3;
-                ctx.moveTo(x, y + topCurveHeight);
-                // 左半边
-                ctx.bezierCurveTo(
-                    x, y,
-                    x - size / 2, y,
-                    x - size / 2, y + topCurveHeight
-                );
-                ctx.bezierCurveTo(
-                    x - size / 2, y + (size + topCurveHeight) / 2,
-                    x, y + (size + topCurveHeight) / 2,
-                    x, y + size
-                );
-                // 右半边
-                ctx.bezierCurveTo(
-                    x, y + (size + topCurveHeight) / 2,
-                    x + size / 2, y + (size + topCurveHeight) / 2,
-                    x + size / 2, y + topCurveHeight
-                );
-                ctx.bezierCurveTo(
-                    x + size / 2, y,
-                    x, y,
-                    x, y + topCurveHeight
-                );
-                ctx.fill();
+            animateCanvas() {
+                const canvas = document.getElementById('particle-canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+
+                let aliveCount = 0;
+                const animate = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    aliveCount = 0;
+                    this.particles.forEach(p => {
+                        if (p.alpha <= 0) return;
+                        aliveCount++;
+
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += 0.12;
+                        p.alpha -= p.decay;
+                        p.rotation += p.rotationSpeed;
+
+                        ctx.save();
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate(p.rotation);
+                        ctx.globalAlpha = p.alpha;
+                        ctx.fillStyle = p.emoji;
+                        ctx.font = `${p.size}px sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(p.emoji, 0, 0);
+                        ctx.restore();
+                    });
+
+                    if (aliveCount > 0) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+                };
+
+                requestAnimationFrame(animate);
             }
         }
 
@@ -887,14 +948,15 @@
         function createFinalHeartRain() {
             const container = document.getElementById('final-heart-rain');
             const hearts = ['💖', '💕', '💗', '💝', '💘', '❤️', '🥰', '😍', '🤍', '💜'];
+            const count = isMobile ? 25 : 50;
 
-            for (let i = 0; i < 50; i++) {
+            for (let i = 0; i < count; i++) {
                 const heart = document.createElement('div');
                 heart.className = 'falling-heart';
                 heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
                 heart.style.cssText = `
                     left: ${Math.random() * 100}%;
-                    --size: ${Math.random() * 30 + 20}px;
+                    --size: ${Math.random() * 25 + 15}px;
                     --duration: ${Math.random() * 4 + 3}s;
                     --delay: ${Math.random() * 5}s;
                 `;
