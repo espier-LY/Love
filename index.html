@@ -776,38 +776,6 @@
             height: 100%;
             z-index: 205;
         }
-
-        .back-to-final-btn {
-            position: fixed;
-            top: max(20px, env(safe-area-inset-top));
-            left: 20px;
-            padding: 12px 25px;
-            font-size: 1rem;
-            font-weight: 500;
-            color: white;
-            background: linear-gradient(135deg, rgba(255, 107, 157, 0.7), rgba(155, 127, 205, 0.7));
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 20px var(--glow-purple);
-            z-index: 210;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .back-to-final-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 30px var(--glow-pink);
-        }
-
-        @media screen and (max-width: 768px) {
-            .back-to-final-btn {
-                padding: 10px 20px;
-                font-size: 0.9rem;
-            }
-        }
     </style>
 </head>
 <body>
@@ -864,7 +832,6 @@
         <div class="memories-area hidden" id="memories-area">
             <h1 class="memories-title">💝 我们的回忆 💝</h1>
             <div id="memories-canvas-container"></div>
-            <button class="back-to-final-btn" id="back-to-final-btn">← 返回</button>
         </div>
     </div>
 
@@ -1331,18 +1298,11 @@
         function setupMemoriesButton() {
             const btn = document.getElementById('memories-btn');
             const memoriesArea = document.getElementById('memories-area');
-            const backBtn = document.getElementById('back-to-final-btn');
 
             btn.addEventListener('click', () => {
                 state.stage = 4;
                 memoriesArea.classList.add('visible');
                 initMemories3D();
-            });
-
-            backBtn.addEventListener('click', () => {
-                memoriesArea.classList.remove('visible');
-                state.stage = 3;
-                disposeMemories3D();
             });
         }
 
