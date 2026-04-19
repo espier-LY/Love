@@ -452,7 +452,7 @@
             display: inline-block;
             margin-top: 30px;
             padding: 15px 35px;
-            font-size: 1.1rem;
+            font-size: 1.3rem;
             font-weight: 500;
             color: white;
             background: linear-gradient(135deg, rgba(155, 127, 205, 0.8) 0%, rgba(147, 112, 219, 0.8) 100%);
@@ -641,8 +641,8 @@
 
             /* 回忆按钮 */
             .memories-btn {
-                padding: 16px 30px;
-                font-size: 1rem;
+                padding: 18px 35px;
+                font-size: 1.3rem;
                 margin-top: 25px;
                 touch-action: manipulation;
             }
@@ -709,6 +709,12 @@
                 font-size: 1.2rem;
             }
 
+            /* 回忆按钮 */
+            .memories-btn {
+                padding: 16px 30px;
+                font-size: 1.2rem;
+            }
+
             /* 星星动画完全禁用 */
             .star {
                 animation: none;
@@ -762,6 +768,10 @@
             transition: transform 0.3s ease, text-shadow 0.3s ease;
         }
 
+        .memories-title.rose-mode {
+            top: 25%;
+        }
+
         .memories-title:hover {
             text-shadow: 0 0 40px var(--glow-pink), 0 0 80px rgba(255, 107, 157, 0.8);
             transform: translate(-50%, -50%) scale(1.05);
@@ -769,10 +779,26 @@
 
         @media screen and (max-width: 768px) {
             .memories-title {
-                top: 45%;
+                font-size: clamp(1.6rem, 5vw, 2.2rem);
+                top: 40%;
                 transform: translate(-50%, -50%);
                 white-space: nowrap;
                 pointer-events: auto;
+            }
+
+            .memories-title.rose-mode {
+                top: 20%;
+            }
+        }
+
+        @media screen and (max-width: 375px) {
+            .memories-title {
+                font-size: clamp(1.4rem, 4.5vw, 1.8rem);
+                top: 38%;
+            }
+
+            .memories-title.rose-mode {
+                top: 18%;
             }
         }
 
@@ -833,7 +859,7 @@
             <div class="final-heart-rain" id="final-heart-rain"></div>
             <div class="big-heart" style="animation-delay: 0s;">💝</div>
             <p class="final-text">以后也想一直陪着你</p>
-            <button class="memories-btn" id="memories-btn">探索回忆日常 💫</button>
+            <button class="memories-btn" id="memories-btn">心动告白</button>
         </div>
 
         <!-- 3D回忆页面 -->
@@ -895,6 +921,7 @@
         let memoriesRoseProgress = 0;
         let memoriesOriginalPositions = [];
         let memoriesRosePositions = [];
+        let memoriesRoseColors = [];
 
         /* ============================================
            🌌 创建星空
@@ -1328,6 +1355,9 @@
                 introStage.style.display = 'none';
                 typewriterContainer.style.display = 'none';
                 confessionArea.style.display = 'none';
+                // 重置标题位置
+                const title = document.querySelector('.memories-title');
+                title.classList.remove('rose-mode');
                 initMemories3D();
             });
 
@@ -1335,9 +1365,11 @@
             const title = document.querySelector('.memories-title');
             title.addEventListener('click', () => {
                 if (state.stage === 4 && !memoriesIsRoseAnimating) {
+                    title.style.display = 'none'; // 隐藏标题
                     startRoseAnimation();
                 }
             });
+
         }
 
         /* ============================================
@@ -1452,6 +1484,7 @@
         }
 
         function onMemoriesDragStart(e) {
+            if (memoriesRoseProgress >= 1) return; // 玫瑰显示时禁止拖拽
             memoriesIsDragging = true;
             memoriesAutoRotate = false;
             clearTimeout(memoriesAutoRotateTimeout);
@@ -1459,7 +1492,7 @@
         }
 
         function onMemoriesDragMove(e) {
-            if (!memoriesIsDragging) return;
+            if (!memoriesIsDragging || memoriesRoseProgress >= 1) return;
 
             const deltaX = e.clientX - memoriesPreviousMousePosition.x;
             const deltaY = e.clientY - memoriesPreviousMousePosition.y;
@@ -1473,12 +1506,15 @@
 
         function onMemoriesDragEnd() {
             memoriesIsDragging = false;
-            memoriesAutoRotateTimeout = setTimeout(() => {
-                memoriesAutoRotate = true;
-            }, 3000);
+            if (memoriesRoseProgress < 1) {
+                memoriesAutoRotateTimeout = setTimeout(() => {
+                    memoriesAutoRotate = true;
+                }, 3000);
+            }
         }
 
         function onMemoriesTouchStart(e) {
+            if (memoriesRoseProgress >= 1) return; // 玫瑰显示时禁止触屏
             if (e.touches.length === 1) {
                 e.preventDefault();
                 memoriesIsDragging = true;
@@ -1489,7 +1525,7 @@
         }
 
         function onMemoriesTouchMove(e) {
-            if (!memoriesIsDragging || e.touches.length !== 1) return;
+            if (!memoriesIsDragging || e.touches.length !== 1 || memoriesRoseProgress >= 1) return;
             e.preventDefault();
 
             const deltaX = e.touches[0].clientX - memoriesPreviousMousePosition.x;
@@ -1523,6 +1559,25 @@
                 updateRoseAnimation();
             }
 
+            // 玫瑰完成后保持静止，禁止任何旋转，但保留浮动效果
+            if (memoriesRoseProgress >= 1) {
+                memoriesAutoRotate = false;
+                memoriesTargetRotation.x = 0;
+                memoriesTargetRotation.y = 0;
+                memoriesCurrentRotation.x = 0;
+                memoriesCurrentRotation.y = 0;
+                memoriesParticles.rotation.x = 0;
+                memoriesParticles.rotation.y = 0;
+                memoriesParticles.position.y = Math.sin(Date.now() * 0.001) * 2;
+                // 玫瑰完成后显示标题并调整位置
+                const title = document.querySelector('.memories-title');
+                title.textContent = '你是我这辈子最大的幸福';
+                title.style.display = 'block';
+                title.classList.add('rose-mode');
+                memoriesRenderer.render(memoriesScene, memoriesCamera);
+                return;
+            }
+
             if (memoriesAutoRotate && !memoriesIsRoseAnimating) {
                 // 桌面端速度减半
                 const rotateSpeed = (isMobile || window.innerWidth < 768) ? 0.005 : 0.0020;
@@ -1539,126 +1594,152 @@
             memoriesRenderer.render(memoriesScene, memoriesCamera);
         }
 
-        // 生成玫瑰花形状 - 精确匹配规格
+        // 生成玫瑰花形状 - 2D玫瑰（与test.html完全一致）
         function generateRosePositions() {
             const rosePoints = [];
+            const roseColors = [];
             const particleCount = memoriesHeartPoints.length;
             const isMobileDevice = isMobile || window.innerWidth < 768;
-            const scale = isMobileDevice ? 1.3 : 2.0;
+            const ROSE_SCALE = isMobileDevice ? 0.5 : 0.27;
 
-            // 粒子分配比例
-            const centerCount = Math.floor(particleCount * 0.08);  // 中心螺旋
-            const middleCount = Math.floor(particleCount * 0.32);   // 中层花瓣
-            const outerCount = Math.floor(particleCount * 0.38);    // 外层花瓣
-            const stemCount = Math.floor(particleCount * 0.12);     // 茎干
-            const leafCount = particleCount - centerCount - middleCount - outerCount - stemCount; // 叶子
+            // 颜色定义（与test.html一致）
+            const deepRed = { r: 0.8, g: 0.1, b: 0.2 };
+            const brightRed = { r: 1.0, g: 0.2, b: 0.3 };
+            const lightPink = { r: 1.0, g: 0.5, b: 0.6 };
+            const darkRed = { r: 0.5, g: 0.05, b: 0.1 };
+            const stemGreen = { r: 0.2, g: 0.6, b: 0.2 };
+            const leafGreen = { r: 0.15, g: 0.55, b: 0.15 };
+            const yellow = { r: 0.5, g: 0.25, b: 0.02 };
 
-            for (let i = 0; i < particleCount; i++) {
-                let x, y, z;
-
-                if (i < centerCount) {
-                    // ===== 中心螺旋：8圈紧密S型螺旋 =====
-                    const t = i / centerCount;
-                    const theta = t * Math.PI * 16; // 8圈螺旋
-                    const r = 0.3 * (1 - t * 0.85); // 螺旋半径递减，约为整体的15%
-
-                    // S型曲线（不是圆，是拉长的）
-                    x = r * Math.cos(theta) * (1 + 0.5 * Math.sin(theta * 0.4));
-                    y = 3.5 + t * 0.8; // 螺旋上升
-                    z = r * Math.sin(theta) * 0.6; // 压扁Z轴
-
-                } else if (i < centerCount + middleCount) {
-                    // ===== 中层花瓣：6片大半瓣，水滴形螺旋展开 =====
-                    const idx = i - centerCount;
-                    const t = idx / middleCount;
-                    const petalCount = 6;
-                    const petalIdx = Math.floor(t * petalCount);
-                    const petalT = (t * petalCount) - petalIdx;
-
-                    const petalAngle = (petalIdx / petalCount) * Math.PI * 2 + petalT * 0.3; // 螺旋偏移
-                    const theta = petalT * Math.PI * 1.5; // 水滴展开弧度
-
-                    // 水滴形参数方程（上圆下尖）
-                    const r = 0.9 * Math.sin(theta) * (1 - theta / (Math.PI * 1.5) * 0.4);
-                    const petalShape = 1 - Math.pow(petalT, 2) * 0.3;
-
-                    x = r * Math.cos(petalAngle) * petalShape;
-                    y = 3.5 - petalT * 0.5 + Math.sin(theta) * 0.25;
-                    z = r * Math.sin(petalAngle) * petalShape;
-
-                    // Z轴厚度：中心厚边缘薄
-                    const thickness = 0.4 * (1 - petalT) + 0.15;
-                    z += Math.cos(theta) * thickness;
-
-                } else if (i < centerCount + middleCount + outerCount) {
-                    // ===== 外层花瓣：8片，更大更展开，边缘上翘 =====
-                    const idx = i - centerCount - middleCount;
-                    const t = idx / outerCount;
-                    const petalCount = 8;
-                    const petalIdx = Math.floor(t * petalCount);
-                    const petalT = (t * petalCount) - petalIdx;
-
-                    const petalAngle = (petalIdx / petalCount) * Math.PI * 2;
-                    const theta = petalT * Math.PI * 1.8;
-
-                    // 更扁平的花瓣
-                    const r = 1.4 + petalT * 0.8;
-                    const petalShape = Math.sin(theta) * (0.7 + petalT * 0.3);
-
-                    x = r * petalShape * Math.cos(petalAngle);
-                    y = 3.3 - petalT * 1.5; // 向下延伸
-                    z = r * petalShape * Math.sin(petalAngle);
-
-                    // 边缘上翘（关键特征）
-                    const edgeCurl = petalT * 0.3;
-                    y += edgeCurl * Math.abs(Math.sin(theta));
-
-                    // Z轴厚度更小
-                    const thickness = 0.25 * (1 - petalT);
-                    z += Math.cos(theta) * thickness;
-
-                } else if (i < centerCount + middleCount + outerCount + stemCount) {
-                    // ===== 茎干：垂直圆柱，从花底向下延伸 =====
-                    const idx = i - centerCount - middleCount - outerCount;
-                    const t = idx / stemCount;
-                    const angle = t * Math.PI * 2;
-                    const radius = 0.06; // 细柱
-
-                    x = radius * Math.cos(angle);
-                    y = 2.5 - t * 5; // 花头2倍长度
-                    z = radius * Math.sin(angle);
-
-                } else {
-                    // ===== 叶子：2片对称水滴形 =====
-                    const idx = i - centerCount - middleCount - outerCount - stemCount;
-                    const t = idx / leafCount;
-                    const leafIdx = t < 0.5 ? 0 : 1;
-                    const leafT = leafIdx === 0 ? t * 2 : (t - 0.5) * 2;
-
-                    // 左右对称展开约30度
-                    const baseAngle = leafIdx === 0 ? Math.PI * 0.25 : Math.PI * 1.75;
-                    const theta = leafT * Math.PI;
-
-                    // 水滴形（椭圆+尖头）
-                    const leafR = 1.0 * Math.sin(theta);
-                    const leafWidth = 1 - Math.pow(leafT - 0.5, 2) * 0.5;
-
-                    x = leafR * leafWidth * Math.cos(baseAngle) * 1.2;
-                    z = leafR * leafWidth * Math.sin(baseAngle) * 0.6;
-                    y = 1.3 - leafIdx * 0.9 - leafT * 0.6;
-
-                    // Z轴弧度：略向下弯
-                    z += Math.sin(theta) * 0.2 * (leafIdx === 0 ? 1 : -1);
-                }
-
-                rosePoints.push({
-                    x: x * scale,
-                    y: y * scale,
-                    z: z * scale
-                });
+            function lerpColor(c1, c2, t) {
+                return {
+                    r: c1.r + (c2.r - c1.r) * t,
+                    g: c1.g + (c2.g - c1.g) * t,
+                    b: c1.b + (c2.b - c1.b) * t
+                };
             }
 
-            return rosePoints;
+            // 粒子分配
+            const petalParticles = Math.floor(particleCount * 0.65);
+            const pistilCount = Math.floor(particleCount * 0.05);
+            const stemCount = Math.floor(particleCount * 0.18);
+            const leafCount = Math.floor(particleCount * 0.06);
+            const centerParticles = Math.floor(particleCount * 0.06);
+
+            const particlesPerPetal = Math.floor(petalParticles / 5);
+
+            // ===== 玫瑰花（5瓣）=====
+            for (let p = 0; p < 5; p++) {
+                const angle = (p / 5) * Math.PI * 2 - Math.PI / 2;
+
+                for (let i = 0; i < particlesPerPetal; i++) {
+                    const u = Math.random();
+                    const v = Math.random();
+
+                    // 花瓣形状参数方程
+                    const r = 50 * ROSE_SCALE * Math.pow(u, 0.5) * (1 - 0.3 * u);
+                    const theta = v * Math.PI;
+
+                    const localX = r * Math.cos(theta);
+                    const localY = r * Math.sin(theta) * 1.3;
+
+                    // 旋转到正确位置
+                    const rotatedX = localX * Math.cos(angle) - localY * Math.sin(angle);
+                    const rotatedY = localX * Math.sin(angle) + localY * Math.cos(angle);
+
+                    // 添加一些随机性
+                    const jitter = 2 * ROSE_SCALE;
+                    const x = rotatedX + (Math.random() - 0.5) * jitter;
+                    const y = rotatedY + (Math.random() - 0.5) * jitter;
+                    const z = 5 * Math.sin(u * Math.PI) * 0.1;
+
+                    rosePoints.push({ x, y, z });
+
+                    // 花瓣颜色：中心浅，边缘深
+                    let color;
+                    if (u < 0.3) {
+                        color = lerpColor(lightPink, brightRed, u / 0.3);
+                    } else if (u < 0.7) {
+                        color = lerpColor(brightRed, deepRed, (u - 0.3) / 0.4);
+                    } else {
+                        color = lerpColor(deepRed, darkRed, (u - 0.7) / 0.3);
+                    }
+                    roseColors.push(color);
+                }
+            }
+
+            // ===== 花蕊 =====
+            for (let i = 0; i < pistilCount; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const r = 8 * ROSE_SCALE * Math.sqrt(Math.random());
+
+                rosePoints.push({
+                    x: r * Math.cos(ang),
+                    y: r * Math.sin(ang),
+                    z: 8 * 0.1
+                });
+                roseColors.push({ ...yellow });
+            }
+
+            // ===== 茎干 =====
+            for (let i = 0; i < stemCount; i++) {
+                const t = i / stemCount;
+                const curve = 10 * Math.sin(t * Math.PI * 2) * ROSE_SCALE;
+                const x = curve + (Math.random() - 0.5) * 4 * ROSE_SCALE;
+                const y = -60 * ROSE_SCALE - t * 100 * ROSE_SCALE;
+                const z = (Math.random() - 0.5) * 4 * 0.1;
+
+                rosePoints.push({ x, y, z });
+                const color = lerpColor(stemGreen, { r: 0.1, g: 0.4, b: 0.1 }, Math.random() * 0.3);
+                roseColors.push(color);
+            }
+
+            // ===== 左叶子 =====
+            for (let i = 0; i < leafCount / 2; i++) {
+                const t = i / (leafCount / 2);
+                const leafX = -20 * ROSE_SCALE - t * 35 * ROSE_SCALE;
+                const leafY = -80 * ROSE_SCALE - t * 25 * ROSE_SCALE;
+                const leafWidth = 15 * ROSE_SCALE * (1 - t * 0.6);
+
+                const x = leafX + (Math.random() - 0.5) * leafWidth;
+                const y = leafY + (Math.random() - 0.5) * 6;
+                const z = (Math.random() - 0.5) * 2 * 0.1;
+
+                rosePoints.push({ x, y, z });
+                const color = lerpColor(leafGreen, { r: 0.1, g: 0.4, b: 0.1 }, Math.random() * 0.5);
+                roseColors.push(color);
+            }
+
+            // ===== 右叶子 =====
+            for (let i = 0; i < leafCount / 2; i++) {
+                const t = i / (leafCount / 2);
+                const leafX = 20 * ROSE_SCALE + t * 35 * ROSE_SCALE;
+                const leafY = -100 * ROSE_SCALE - t * 25 * ROSE_SCALE;
+                const leafWidth = 15 * ROSE_SCALE * (1 - t * 0.6);
+
+                const x = leafX + (Math.random() - 0.5) * leafWidth;
+                const y = leafY + (Math.random() - 0.5) * 6;
+                const z = (Math.random() - 0.5) * 2 * 0.1;
+
+                rosePoints.push({ x, y, z });
+                const color = lerpColor(leafGreen, { r: 0.1, g: 0.4, b: 0.1 }, Math.random() * 0.5);
+                roseColors.push(color);
+            }
+
+            // ===== 中心 =====
+            for (let i = 0; i < centerParticles; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const r = 10 * ROSE_SCALE * Math.sqrt(Math.random());
+
+                rosePoints.push({
+                    x: r * Math.cos(ang) * 0.5,
+                    y: r * Math.sin(ang) * 0.5 + 5,
+                    z: 3 * 0.1
+                });
+                roseColors.push({ ...deepRed });
+            }
+
+            return { positions: rosePoints, colors: roseColors };
         }
 
         // 开始玫瑰动画
@@ -1672,8 +1753,10 @@
             // 保存原始位置
             memoriesOriginalPositions = memoriesHeartPoints.map(p => ({ x: p.x, y: p.y, z: p.z }));
 
-            // 生成玫瑰位置
-            memoriesRosePositions = generateRosePositions();
+            // 生成玫瑰位置和颜色
+            const roseData = generateRosePositions();
+            memoriesRosePositions = roseData.positions;
+            memoriesRoseColors = roseData.colors;
         }
 
         // 更新玫瑰动画
@@ -1681,6 +1764,7 @@
             if (!memoriesParticles) return;
 
             const positions = memoriesParticles.geometry.attributes.position.array;
+            const colors = memoriesParticles.geometry.attributes.color.array;
             const ease = easeOutCubic(memoriesRoseProgress);
 
             for (let i = 0; i < memoriesHeartPoints.length; i++) {
@@ -1690,9 +1774,17 @@
                 positions[i * 3] = orig.x + (rose.x - orig.x) * ease;
                 positions[i * 3 + 1] = orig.y + (rose.y - orig.y) * ease;
                 positions[i * 3 + 2] = orig.z + (rose.z - orig.z) * ease;
+
+                // 颜色插值
+                if (memoriesRoseColors[i]) {
+                    colors[i * 3] = colors[i * 3] + (memoriesRoseColors[i].r - colors[i * 3]) * ease;
+                    colors[i * 3 + 1] = colors[i * 3 + 1] + (memoriesRoseColors[i].g - colors[i * 3 + 1]) * ease;
+                    colors[i * 3 + 2] = colors[i * 3 + 2] + (memoriesRoseColors[i].b - colors[i * 3 + 2]) * ease;
+                }
             }
 
             memoriesParticles.geometry.attributes.position.needsUpdate = true;
+            memoriesParticles.geometry.attributes.color.needsUpdate = true;
         }
 
         // 缓动函数
